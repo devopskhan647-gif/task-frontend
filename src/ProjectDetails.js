@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "./api";
 
@@ -20,30 +20,32 @@ export default function ProjectDetails() {
   const [taskDueDate, setTaskDueDate] = useState("");
   const [users, setUsers] = useState([]);
 
-  useEffect(() => {
-    fetchProject();
-    if (role === "admin") fetchUsers();
-  }, [id]);
-
   /* ================= API CALLS ================= */
 
-  const fetchProject = async () => {
+  const fetchProject = useCallback(async () => {
     try {
       const res = await API.get(`/projects/${id}`);
       setProject(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [id]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await API.get("/users");
       setUsers(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProject();
+    if (role === "admin") {
+      fetchUsers();
+    }
+  }, [fetchProject, fetchUsers, role]);
 
   const updateStatus = async (taskId, status) => {
     try {
@@ -138,7 +140,6 @@ export default function ProjectDetails() {
     <div style={{ maxWidth: 900, margin: "30px auto", padding: "0 20px" }}>
       <h2 style={{ textAlign: "center" }}>{project.name}</h2>
 
-      {/* Admin controls */}
       {role === "admin" && (
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <button
@@ -156,7 +157,6 @@ export default function ProjectDetails() {
         </div>
       )}
 
-      {/* Task Grid */}
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))" }}>
         {visibleTasks.map(t => (
           <div key={t.id} style={{ padding: 20, borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,.1)" }}>
@@ -189,7 +189,7 @@ export default function ProjectDetails() {
             {role === "admin" && (
               <button
                 onClick={() => deleteTask(t.id)}
-                style={{ marginTop: 20, width: "35%%", background: "#d9534f", color: "#fff" }}
+                style={{ marginTop: 20, width: "35%", background: "#d9534f", color: "#fff" }}
               >
                 Delete Task
               </button>
@@ -198,80 +198,46 @@ export default function ProjectDetails() {
         ))}
       </div>
 
-      {/* Add Task Modal */}
-      {/* Add Task Modal */}
-{showTaskModal && (
-  <div style={{
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000
-  }}>
-    <div style={{
-      background: "#fff",
-      padding: 30,
-      width: 400,
-      borderRadius: 10,
-      display: "flex",
-      flexDirection: "column",
-      gap: 15, // spacing between inputs
-      boxShadow: "0 5px 15px rgba(0,0,0,.3)"
-    }}>
-      <h3 style={{ margin: 0, textAlign: "center" }}>Add Task</h3>
+      {showTaskModal && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "#fff",
+            padding: 30,
+            width: 400,
+            borderRadius: 10,
+            display: "flex",
+            flexDirection: "column",
+            gap: 15
+          }}>
+            <h3 style={{ textAlign: "center" }}>Add Task</h3>
 
-      <input
-        placeholder="Title"
-        value={taskTitle}
-        onChange={e => setTaskTitle(e.target.value)}
-        style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", width: "100%" }}
-      />
+            <input placeholder="Title" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
+            <textarea placeholder="Description" value={taskDesc} onChange={e => setTaskDesc(e.target.value)} />
 
-      <textarea
-        placeholder="Description"
-        value={taskDesc}
-        onChange={e => setTaskDesc(e.target.value)}
-        style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", width: "100%", minHeight: 60 }}
-      />
+            <select value={taskAssignedTo} onChange={e => setTaskAssignedTo(e.target.value)}>
+              <option value="">Assign to</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
 
-      <select
-        value={taskAssignedTo}
-        onChange={e => setTaskAssignedTo(e.target.value)}
-        style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", width: "100%" }}
-      >
-        <option value="">Assign to</option>
-        {users.map(u => (
-          <option key={u.id} value={u.id}>{u.name}</option>
-        ))}
-      </select>
+            <input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
 
-      <input
-        type="date"
-        value={taskDueDate}
-        onChange={e => setTaskDueDate(e.target.value)}
-        style={{ padding: 8, borderRadius: 4, border: "1px solid #ccc", width: "100%" }}
-      />
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-        <button
-          onClick={handleCreateTask}
-          style={{ padding: "8px 15px", background: "#5cb85c", color: "#fff", border: "none", borderRadius: 4 }}
-        >
-          Create
-        </button>
-        <button
-          onClick={() => setShowTaskModal(false)}
-          style={{ padding: "8px 15px", background: "#d9534f", color: "#fff", border: "none", borderRadius: 4 }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <button onClick={handleCreateTask}>Create</button>
+              <button onClick={() => setShowTaskModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
